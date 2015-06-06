@@ -37,7 +37,7 @@ import org.spongepowered.common.interfaces.IMixinServerCommandManager;
 import org.spongepowered.mod.command.ForgeMinecraftCommandWrapper;
 
 @NonnullByDefault
-@Mixin(value = ServerCommandManager.class)
+@Mixin(value = ServerCommandManager.class, priority = 1001)
 public abstract class MixinServerCommandManager extends CommandHandler implements IMixinServerCommandManager {
 
     @Override

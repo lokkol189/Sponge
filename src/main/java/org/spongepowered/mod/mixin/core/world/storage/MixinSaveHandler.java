@@ -5,7 +5,7 @@ import net.minecraft.world.storage.SaveHandler;
 import net.minecraft.world.storage.WorldInfo;
 import org.spongepowered.asm.mixin.Mixin;
 
-@Mixin(SaveHandler.class)
+@Mixin(value = SaveHandler.class, priority = 1001)
 public abstract class MixinSaveHandler {
     private void loadDimensionAndOtherData(SaveHandler handler, WorldInfo info, NBTTagCompound compound) {
         //NOOP cause Forge does this in the SaveHandler

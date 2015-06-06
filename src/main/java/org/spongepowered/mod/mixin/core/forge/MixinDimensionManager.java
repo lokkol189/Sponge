@@ -30,7 +30,6 @@ import net.minecraftforge.common.DimensionManager;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
 import org.spongepowered.api.world.storage.WorldProperties;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.common.world.SpongeDimensionType;
 import org.spongepowered.mod.SpongeMod;
@@ -43,22 +42,16 @@ import java.util.Hashtable;
 @Mixin(value = DimensionManager.class, remap = false)
 public abstract class MixinDimensionManager {
 
-    @Shadow
-    private static Hashtable<Integer, Class<? extends WorldProvider>> providers;
+    @Shadow private static Hashtable<Integer, Class<? extends WorldProvider>> providers;
+    @Shadow private static Hashtable<Integer, Boolean> spawnSettings;
+    @Shadow private static ArrayList<Integer> unloadQueue;
 
-    @Shadow
-    private static Hashtable<Integer, Boolean> spawnSettings;
-
-    @Shadow
-    private static ArrayList<Integer> unloadQueue;
-
-    @Overwrite
     public static boolean registerProviderType(int id, Class<? extends WorldProvider> provider, boolean keepLoaded) {
         if (providers.containsKey(id)) {
             return false;
         }
 
-        String worldType = "";
+        String worldType;
         switch (id) {
             case -1:
                 worldType = "NETHER";
@@ -86,7 +79,6 @@ public abstract class MixinDimensionManager {
         return true;
     }
 
-    @Overwrite
     public static void unloadWorld(int id) {
         WorldServer world = DimensionManager.getWorld(id);
         if (world != null && !((WorldProperties) world.getWorldInfo()).doesKeepSpawnLoaded()) {

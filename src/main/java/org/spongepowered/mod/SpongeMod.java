@@ -41,8 +41,8 @@ import net.minecraftforge.fml.common.ModMetadata;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
-import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -51,6 +51,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Type;
 import org.spongepowered.api.Game;
+import org.spongepowered.api.event.state.PreInitializationEvent;
+import org.spongepowered.api.event.state.ServerAboutToStartEvent;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.plugin.PluginContainer;
 import org.spongepowered.api.service.ProviderExistsException;
@@ -63,6 +65,7 @@ import org.spongepowered.api.service.sql.SqlService;
 import org.spongepowered.api.util.Tristate;
 import org.spongepowered.api.util.command.CommandMapping;
 import org.spongepowered.common.Sponge;
+import org.spongepowered.common.SpongeCommon;
 import org.spongepowered.common.command.MinecraftCommandWrapper;
 import org.spongepowered.common.interfaces.IMixinServerCommandManager;
 import org.spongepowered.common.service.permission.SpongeContextCalculator;
@@ -102,8 +105,6 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
 
         this.game = Sponge.getGame();
         this.registry = (SpongeModGameRegistry) this.game.getRegistry();
-
-        this.game.getCommandDispatcher().register(this, CommandSponge.getCommand(this), "sponge", "sp");
     }
 
     @Override
@@ -144,6 +145,8 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
 
     @Subscribe
     public void onPreInit(FMLPreInitializationEvent e) {
+        SpongeCommon.INSTANCE.onPreInitialization((PreInitializationEvent) e);
+
         try {
             MinecraftForge.EVENT_BUS.register(new SpongeEventHooks());
 
@@ -162,7 +165,6 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
             if (e.getSide() == Side.SERVER) {
                 SpongeHooks.enableThreadContentionMonitoring();
             }
-            this.registry.preInit();
         } catch (Throwable t) {
             this.controller.errorOccurred(this, t);
         }
@@ -207,8 +209,12 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
     }
 
     @Subscribe
-    public void onServerStarting(FMLServerStartingEvent e) {
+    public void onServerStarting(FMLServerAboutToStartEvent e) {
+        SpongeCommon.INSTANCE.onServerAboutToStart((ServerAboutToStartEvent) e);
+
         try {
+            this.game.getCommandDispatcher().register(this, CommandSponge.getCommand(this), "sponge", "sp");
+
             // Register vanilla-style commands (if necessary -- not necessary on client)
             ((IMixinServerCommandManager) MinecraftServer.getServer().getCommandManager()).registerEarlyCommands(this.game);
         } catch (Throwable t) {

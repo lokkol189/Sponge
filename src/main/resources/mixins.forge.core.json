@@ -48,6 +48,7 @@
         "item.MixinEnchantment",
         "server.MixinServerCommandManager",
         "world.MixinChunk",
-        "world.storage.MixinSaveHandler"
+        "world.storage.MixinSaveHandler",
+        "MixinCommonDimensionManager"
     ]
 }

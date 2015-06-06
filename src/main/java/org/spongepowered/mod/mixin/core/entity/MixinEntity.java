@@ -24,24 +24,25 @@
  */
 package org.spongepowered.mod.mixin.core.entity;
 
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.play.server.S07PacketRespawn;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.Constants;
-import org.spongepowered.api.entity.Entity;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.spongepowered.common.interfaces.IMixinEntity;
+import org.spongepowered.common.interfaces.IMixinEntityPlayerMP;
+import org.spongepowered.common.world.DimensionManager;
 
 
 @NonnullByDefault
-@Mixin(net.minecraft.entity.Entity.class)
-public abstract class MixinEntity implements Entity, IMixinEntity {
+@Mixin(value = net.minecraft.entity.Entity.class, priority = 1001)
+public abstract class MixinEntity implements IMixinEntity {
 
     // @formatter:off
     @Shadow(remap = false)
@@ -57,11 +58,62 @@ public abstract class MixinEntity implements Entity, IMixinEntity {
         return data.getCompoundTag("SpongeData");
     }
 
-    // TODO World changes, use the locals that Mixin prints
-    @Inject(method = "teleportEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/EntityPlayerMP;setHealth(F)V", shift =
-            At.Shift.AFTER), locals = LocalCapture.PRINT)
-    public void callFirePlayerChangedDimensionEvent(net.minecraft.entity.Entity entity, Location location, int currentDim, int targetDim, boolean
-            forced, CallbackInfo ci, EntityPlayerMP entityplayermp1) {
-        net.minecraftforge.fml.common.FMLCommonHandler.instance().firePlayerChangedDimensionEvent(entityplayermp1, currentDim, targetDim);
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean teleportEntity(net.minecraft.entity.Entity entity, Location location, int currentDim, int targetDim, boolean forced) {
+        MinecraftServer mcServer = MinecraftServer.getServer();
+        final WorldServer fromWorld = mcServer.worldServerForDimension(currentDim);
+        final WorldServer toWorld = mcServer.worldServerForDimension(targetDim);
+        if (entity instanceof EntityPlayer) {
+            fromWorld.getEntityTracker().removePlayerFromTrackers((EntityPlayerMP) entity);
+            fromWorld.getPlayerManager().removePlayer((EntityPlayerMP) entity);
+            mcServer.getConfigurationManager().playerEntityList.remove(entity);
+        } else {
+            fromWorld.getEntityTracker().untrackEntity(entity);
+        }
+
+        entity.worldObj.removePlayerEntityDangerously(entity);
+        entity.dimension = targetDim;
+        entity.setPositionAndRotation(location.getX(), location.getY(), location.getZ(), 0, 0);
+        if (forced) {
+            while (!toWorld.getCollidingBoundingBoxes(entity, entity.getEntityBoundingBox()).isEmpty() && entity.posY < 256.0D) {
+                entity.setPosition(entity.posX, entity.posY + 1.0D, entity.posZ);
+            }
+        }
+
+        toWorld.theChunkProviderServer.loadChunk((int) entity.posX >> 4, (int) entity.posZ >> 4);
+
+        if (entity instanceof EntityPlayer) {
+            EntityPlayerMP entityplayermp1 = (EntityPlayerMP) entity;
+
+            // Support vanilla clients going into custom dimensions
+            int dimension = DimensionManager.getClientDimensionToSend(toWorld.provider.getDimensionId(), toWorld, entityplayermp1);
+            if (((IMixinEntityPlayerMP) entityplayermp1).usesCustomClient()) {
+                DimensionManager.sendDimensionRegistration(toWorld, entityplayermp1, dimension);
+            }
+
+            entityplayermp1.playerNetServerHandler.sendPacket(
+                    new S07PacketRespawn(targetDim, toWorld.getDifficulty(), toWorld.getWorldInfo().getTerrainType(),
+                            entityplayermp1.theItemInWorldManager.getGameType()));
+            entity.setWorld(toWorld);
+            entity.isDead = false;
+            entityplayermp1.playerNetServerHandler.setPlayerLocation(entityplayermp1.posX, entityplayermp1.posY, entityplayermp1.posZ,
+                    entityplayermp1.rotationYaw, entityplayermp1.rotationPitch);
+            entityplayermp1.setSneaking(false);
+            mcServer.getConfigurationManager().updateTimeAndWeatherForPlayer(entityplayermp1, toWorld);
+            toWorld.getPlayerManager().addPlayer(entityplayermp1);
+            toWorld.spawnEntityInWorld(entityplayermp1);
+            mcServer.getConfigurationManager().playerEntityList.add(entityplayermp1);
+            entityplayermp1.theItemInWorldManager.setWorld(toWorld);
+            entityplayermp1.addSelfToInternalCraftingInventory();
+            entityplayermp1.setHealth(entityplayermp1.getHealth());
+            net.minecraftforge.fml.common.FMLCommonHandler.instance().firePlayerChangedDimensionEvent(entityplayermp1, currentDim, targetDim);
+        } else {
+            toWorld.spawnEntityInWorld(entity);
+        }
+
+        fromWorld.resetUpdateEntityTick();
+        toWorld.resetUpdateEntityTick();
+        return true;
     }
 }

@@ -102,7 +102,6 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
 
         this.game = Sponge.getGame();
         this.registry = (SpongeModGameRegistry) this.game.getRegistry();
-        common.registerServices();
 
         this.game.getCommandDispatcher().register(this, CommandSponge.getCommand(this), "sponge", "sp");
     }

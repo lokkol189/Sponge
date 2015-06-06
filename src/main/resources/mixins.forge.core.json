@@ -47,6 +47,7 @@
         "forge.MixinDimensionManager",
         "item.MixinEnchantment",
         "server.MixinServerCommandManager",
-        "world.MixinChunk"
+        "world.MixinChunk",
+        "world.storage.MixinSaveHandler"
     ]
 }

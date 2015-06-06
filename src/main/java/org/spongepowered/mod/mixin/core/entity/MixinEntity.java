@@ -24,12 +24,18 @@
  */
 package org.spongepowered.mod.mixin.core.entity;
 
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.util.Constants;
 import org.spongepowered.api.entity.Entity;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
+import org.spongepowered.api.world.Location;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.spongepowered.common.interfaces.IMixinEntity;
 
 
@@ -51,4 +57,11 @@ public abstract class MixinEntity implements Entity, IMixinEntity {
         return data.getCompoundTag("SpongeData");
     }
 
+    // TODO World changes, use the locals that Mixin prints
+    @Inject(method = "teleportEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/EntityPlayerMP;setHealth(F)V", shift =
+            At.Shift.AFTER), locals = LocalCapture.PRINT)
+    public void callFirePlayerChangedDimensionEvent(net.minecraft.entity.Entity entity, Location location, int currentDim, int targetDim, boolean
+            forced, CallbackInfo ci, EntityPlayerMP entityplayermp1) {
+        net.minecraftforge.fml.common.FMLCommonHandler.instance().firePlayerChangedDimensionEvent(entityplayermp1, currentDim, targetDim);
+    }
 }

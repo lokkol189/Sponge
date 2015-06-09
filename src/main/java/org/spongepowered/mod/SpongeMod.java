@@ -42,17 +42,18 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
-import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.relauncher.Side;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Type;
 import org.spongepowered.api.Game;
+import org.spongepowered.api.event.state.InitializationEvent;
+import org.spongepowered.api.event.state.PostInitializationEvent;
 import org.spongepowered.api.event.state.PreInitializationEvent;
 import org.spongepowered.api.event.state.ServerAboutToStartEvent;
+import org.spongepowered.api.event.state.ServerStartedEvent;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.plugin.PluginContainer;
 import org.spongepowered.api.service.ProviderExistsException;
@@ -101,10 +102,12 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
         SpongeMod.instance = this;
 
         // Initialize Sponge
-        Sponge common = Guice.createInjector(new SpongeGuiceModule()).getInstance(Sponge.class);
+        Guice.createInjector(new SpongeGuiceModule()).getInstance(Sponge.class);
 
         this.game = Sponge.getGame();
         this.registry = (SpongeModGameRegistry) this.game.getRegistry();
+
+        this.game.getEventManager().register(this, this);
     }
 
     @Override
@@ -144,10 +147,10 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
     }
 
     @Subscribe
-    public void onPreInit(FMLPreInitializationEvent e) {
-        SpongeCommon.INSTANCE.onPreInitialization((PreInitializationEvent) e);
-
+    public void onPreInit(FMLPreInitializationEvent event) {
         try {
+            SpongeCommon.INSTANCE.onPreInitialization((PreInitializationEvent) event);
+
             MinecraftForge.EVENT_BUS.register(new SpongeEventHooks());
 
             this.game.getServiceManager().potentiallyProvide(PermissionService.class).executeWhenPresent(new Predicate<PermissionService>() {
@@ -162,7 +165,7 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
             // Add the SyncScheduler as a listener for ServerTickEvents
             FMLCommonHandler.instance().bus().register(this);
 
-            if (e.getSide() == Side.SERVER) {
+            if (event.getSide().isServer()) {
                 SpongeHooks.enableThreadContentionMonitoring();
             }
         } catch (Throwable t) {
@@ -178,12 +181,12 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
     }
 
     @Subscribe
-    public void onInitialization(FMLInitializationEvent e) {
+    public void onInitialization(FMLInitializationEvent event) {
         try {
-            this.registry.init();
+            SpongeCommon.INSTANCE.onInitialization((InitializationEvent) event);
             if (!this.game.getServiceManager().provide(PermissionService.class).isPresent()) {
                 try {
-                    SpongePermissionService service = new SpongePermissionService();
+                    final SpongePermissionService service = new SpongePermissionService();
                     // Setup default permissions
                     service.getGroupForOpLevel(1).getSubjectData().setPermission(SubjectData.GLOBAL_CONTEXT, "minecraft.selector", Tristate.TRUE);
                     service.getGroupForOpLevel(2).getSubjectData().setPermission(SubjectData.GLOBAL_CONTEXT, "minecraft.commandblock", Tristate.TRUE);
@@ -198,9 +201,9 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
     }
 
     @Subscribe
-    public void onPostInitialization(FMLPostInitializationEvent e) {
+    public void onPostInitialization(FMLPostInitializationEvent event) {
         try {
-            this.registry.postInit();
+            SpongeCommon.INSTANCE.onPostInitialization((PostInitializationEvent) event);
             SerializationService service = this.game.getServiceManager().provide(SerializationService.class).get();
             ((SpongeSerializationService) service).completeRegistration();
         } catch (Throwable t) {
@@ -209,10 +212,9 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
     }
 
     @Subscribe
-    public void onServerStarting(FMLServerAboutToStartEvent e) {
-        SpongeCommon.INSTANCE.onServerAboutToStart((ServerAboutToStartEvent) e);
-
+    public void onServerAboutToStart(FMLServerAboutToStartEvent event) {
         try {
+            SpongeCommon.INSTANCE.onServerAboutToStart((ServerAboutToStartEvent) event);
             this.game.getCommandDispatcher().register(this, CommandSponge.getCommand(this), "sponge", "sp");
 
             // Register vanilla-style commands (if necessary -- not necessary on client)
@@ -223,7 +225,7 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
     }
 
     @Subscribe
-    public void onServerStarted(FMLServerStartedEvent e) {
+    public void onServerStarted(ServerStartedEvent event) {
         try {
             ((IMixinServerCommandManager) MinecraftServer.getServer().getCommandManager()).registerLowPriorityCommands(this.game);
         } catch (Throwable t) {
@@ -233,7 +235,7 @@ public class SpongeMod extends DummyModContainer implements PluginContainer {
     }
 
     @Subscribe
-    public void onServerStopped(FMLServerStoppedEvent e) throws IOException {
+    public void onServerStopped(FMLServerStoppedEvent event) throws IOException {
         try {
             CommandService service = getGame().getCommandDispatcher();
             for (CommandMapping mapping : service.getCommands()) {

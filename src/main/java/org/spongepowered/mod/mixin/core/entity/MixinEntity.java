@@ -34,6 +34,7 @@ import net.minecraftforge.common.util.Constants;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.common.interfaces.IMixinEntity;
 import org.spongepowered.common.interfaces.IMixinEntityPlayerMP;
@@ -58,7 +59,7 @@ public abstract class MixinEntity implements IMixinEntity {
         return data.getCompoundTag("SpongeData");
     }
 
-    @Override
+    @Overwrite
     @SuppressWarnings("unchecked")
     public boolean teleportEntity(net.minecraft.entity.Entity entity, Location location, int currentDim, int targetDim, boolean forced) {
         MinecraftServer mcServer = MinecraftServer.getServer();

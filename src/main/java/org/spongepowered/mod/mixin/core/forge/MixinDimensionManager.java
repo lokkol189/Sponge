@@ -30,10 +30,11 @@ import net.minecraftforge.common.DimensionManager;
 import org.spongepowered.api.util.annotation.NonnullByDefault;
 import org.spongepowered.api.world.storage.WorldProperties;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.common.Sponge;
+import org.spongepowered.common.registry.SpongeGameRegistry;
 import org.spongepowered.common.world.SpongeDimensionType;
-import org.spongepowered.mod.SpongeMod;
-import org.spongepowered.mod.registry.SpongeModGameRegistry;
 
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -46,6 +47,7 @@ public abstract class MixinDimensionManager {
     @Shadow private static Hashtable<Integer, Boolean> spawnSettings;
     @Shadow private static ArrayList<Integer> unloadQueue;
 
+    @Overwrite
     public static boolean registerProviderType(int id, Class<? extends WorldProvider> provider, boolean keepLoaded) {
         if (providers.containsKey(id)) {
             return false;
@@ -68,7 +70,7 @@ public abstract class MixinDimensionManager {
                 worldType = worldType.replace("provider", "");
         }
         // register dimension type
-        ((SpongeModGameRegistry) SpongeMod.instance.getGame().getRegistry())
+        ((SpongeGameRegistry) Sponge.getGame().getRegistry())
                 .registerDimensionType(new SpongeDimensionType(worldType, keepLoaded, provider, id));
         providers.put(id, provider);
         if (id == 1) {
@@ -79,6 +81,7 @@ public abstract class MixinDimensionManager {
         return true;
     }
 
+    @Overwrite
     public static void unloadWorld(int id) {
         WorldServer world = DimensionManager.getWorld(id);
         if (world != null && !((WorldProperties) world.getWorldInfo()).doesKeepSpawnLoaded()) {

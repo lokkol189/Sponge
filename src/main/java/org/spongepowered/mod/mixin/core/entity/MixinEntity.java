@@ -59,8 +59,8 @@ public abstract class MixinEntity implements IMixinEntity {
         return data.getCompoundTag("SpongeData");
     }
 
-    @Overwrite
     @SuppressWarnings("unchecked")
+    @Overwrite
     public boolean teleportEntity(net.minecraft.entity.Entity entity, Location location, int currentDim, int targetDim, boolean forced) {
         MinecraftServer mcServer = MinecraftServer.getServer();
         final WorldServer fromWorld = mcServer.worldServerForDimension(currentDim);
@@ -88,13 +88,20 @@ public abstract class MixinEntity implements IMixinEntity {
             EntityPlayerMP entityplayermp1 = (EntityPlayerMP) entity;
 
             // Support vanilla clients going into custom dimensions
-            int dimension = DimensionManager.getClientDimensionToSend(toWorld.provider.getDimensionId(), toWorld, entityplayermp1);
+            int clientDimension = DimensionManager.getClientDimensionToSend(toWorld.provider.getDimensionId(), toWorld, entityplayermp1);
             if (((IMixinEntityPlayerMP) entityplayermp1).usesCustomClient()) {
-                DimensionManager.sendDimensionRegistration(toWorld, entityplayermp1, dimension);
+                DimensionManager.sendDimensionRegistration(toWorld, entityplayermp1, clientDimension);
+            } else {
+                // Send bogus dimension change for same worlds on Vanilla client
+                if (currentDim != targetDim && (currentDim == clientDimension || targetDim == clientDimension)) {
+                    entityplayermp1.playerNetServerHandler.sendPacket(
+                            new S07PacketRespawn(((clientDimension + 2) % 3) - 1, toWorld.getDifficulty(), toWorld.getWorldInfo().getTerrainType(),
+                                    entityplayermp1.theItemInWorldManager.getGameType()));
+                }
             }
 
             entityplayermp1.playerNetServerHandler.sendPacket(
-                    new S07PacketRespawn(targetDim, toWorld.getDifficulty(), toWorld.getWorldInfo().getTerrainType(),
+                    new S07PacketRespawn(clientDimension, toWorld.getDifficulty(), toWorld.getWorldInfo().getTerrainType(),
                             entityplayermp1.theItemInWorldManager.getGameType()));
             entity.setWorld(toWorld);
             entity.isDead = false;
